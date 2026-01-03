@@ -116,7 +116,8 @@ function MovieRoulette() {
     
     // Add the final movie multiple times at the end to ensure it's visible
     // This creates a "landing zone" where the animation will stop
-    for (let i = 0; i < 5; i++) {
+    // Add more copies to ensure visibility
+    for (let i = 0; i < 10; i++) {
       repeatedMovies.push(finalMovie)
     }
     
@@ -126,16 +127,20 @@ function MovieRoulette() {
     const spinDuration = 3000
 
     // Calculate the exact scroll position to show the final movie
-    // Each movie item is approximately 88px tall (80px minHeight + 8px gap from flex gap-2)
+    // Container has p-6 (24px padding on all sides) and height 200px
+    // The motion.div is inside, so visible scrollable area accounts for padding
+    // Each movie item: minHeight 80px + gap-2 (8px) = 88px
     const itemHeight = 88
-    const containerHeight = 200
+    const containerPadding = 24 * 2 // p-6 = 24px top + 24px bottom
+    const visibleHeight = 200 - containerPadding // 152px visible area
     const totalItems = repeatedMovies.length
-    const finalMovieStartIndex = totalItems - 5 // Final movie starts at this index (we added 5 copies)
+    // We want to show one of the final movie instances (they start at index totalItems - 10)
+    // Let's target the 3rd instance from the end (index totalItems - 3) to ensure visibility
+    const targetMovieIndex = totalItems - 3
     
-    // Calculate scroll position to center the first instance of the final movie
-    // Scroll = -(index * itemHeight) + (containerHeight / 2) - (itemHeight / 2)
-    // This centers the item in the visible container
-    const targetY = -(finalMovieStartIndex * itemHeight) + (containerHeight / 2) - (itemHeight / 2)
+    // Calculate scroll position to show the target movie in the center of visible area
+    // To center: scroll = -(index * itemHeight) + (visibleHeight / 2) - (itemHeight / 2)
+    const targetY = -(targetMovieIndex * itemHeight) + (visibleHeight / 2) - (itemHeight / 2)
     setTargetScrollPosition(targetY)
 
     setTimeout(() => {
