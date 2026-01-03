@@ -66,6 +66,10 @@ export default async function handler(req, res) {
                   if (poster && !poster.startsWith('http')) {
                     poster = 'https://letterboxd.com' + poster
                   }
+                  // Remove placeholder images - Letterboxd serves empty-poster images to prevent scraping
+                  if (poster.includes('empty-poster') || poster.includes('static/img/empty')) {
+                    poster = '' // Remove placeholder
+                  }
                 }
                 movies.push({
                   title: decodeHtmlEntities(item.item.name || ''),
@@ -113,6 +117,10 @@ export default async function handler(req, res) {
           if (!poster.startsWith('http')) {
             poster = 'https://letterboxd.com' + poster
           }
+          // Remove placeholder images - Letterboxd serves empty-poster images
+          if (poster.includes('empty-poster') || poster.includes('static/img/empty')) {
+            poster = '' // Remove placeholder, we'll handle this in the frontend
+          }
         }
 
         // Extract link
@@ -156,6 +164,10 @@ export default async function handler(req, res) {
             poster = poster.replace(/\/0-230-0-345-crop/, '/0-500-0-750-crop')
             if (!poster.startsWith('http')) {
               poster = 'https://letterboxd.com' + poster
+            }
+            // Remove placeholder images - Letterboxd serves empty-poster images to prevent scraping
+            if (poster.includes('empty-poster') || poster.includes('static/img/empty')) {
+              poster = '' // Remove placeholder
             }
           }
 
