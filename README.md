@@ -83,12 +83,38 @@ vercel
 4. Click "Load List" to fetch all movies
 5. Click "Spin the Roulette!" to randomly select a movie
 
+## 🎨 Movie Posters (TMDB Integration)
+
+The app can fetch real movie posters from [The Movie Database (TMDB)](https://www.themoviedb.org/) API. This is **optional** but recommended for better visual experience.
+
+### Setup TMDB API (Optional)
+
+1. **Get a free API key:**
+   - Sign up at [TMDB](https://www.themoviedb.org/signup)
+   - Go to [API Settings](https://www.themoviedb.org/settings/api)
+   - Request an API key (choose "Developer" for personal use)
+   - Copy your API key
+
+2. **Add to Vercel Environment Variables:**
+   - Go to your Vercel project settings
+   - Navigate to "Environment Variables"
+   - Add: `TMDB_API_KEY` = `your_api_key_here`
+   - Redeploy your project
+
+3. **For local development:**
+   - Create a `.env.local` file in the project root
+   - Add: `TMDB_API_KEY=your_api_key_here`
+   - Restart your dev server
+
+**Note:** Without a TMDB API key, the app will work perfectly but won't display movie posters (Letterboxd serves placeholder images to prevent scraping).
+
 ## ⚠️ Notes
 
 - The app only works with **public** Letterboxd lists
 - Letterboxd doesn't have a public API, so the app uses web scraping
 - Make sure the list URL is correct and the list is public
 - Rate limiting may apply if making too many requests
+- TMDB API has rate limits (~40 requests per 10 seconds) - the app batches requests to respect these limits
 
 ## 📄 License
 

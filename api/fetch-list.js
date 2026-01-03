@@ -11,6 +11,85 @@ function decodeHtmlEntities(text) {
     .replace(/&apos;/g, "'")
 }
 
+// Fetch movie poster from TMDB API
+async function getPosterFromTMDB(title, year) {
+  const apiKey = process.env.TMDB_API_KEY
+  
+  if (!apiKey) {
+    return null // No API key, skip TMDB lookup
+  }
+
+  try {
+    // Search for the movie
+    const searchUrl = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}${year ? `&year=${year}` : ''}`
+    
+    const response = await fetch(searchUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const data = await response.json()
+    
+    if (data.results && data.results.length > 0) {
+      // Get the first result (most likely match)
+      const movie = data.results[0]
+      
+      if (movie.poster_path) {
+        // Construct full poster URL (w500 is a good size)
+        return `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+      }
+    }
+    
+    return null
+  } catch (error) {
+    console.error('TMDB API error:', error)
+    return null
+  }
+}
+
+// Batch fetch posters from TMDB (with rate limiting)
+async function enrichMoviesWithPosters(movies) {
+  const apiKey = process.env.TMDB_API_KEY
+  
+  if (!apiKey || movies.length === 0) {
+    return movies
+  }
+
+  // Process movies in batches to avoid rate limits
+  const batchSize = 5
+  const delay = 250 // 250ms delay between batches (TMDB allows ~40 requests per 10 seconds)
+  
+  for (let i = 0; i < movies.length; i += batchSize) {
+    const batch = movies.slice(i, i + batchSize)
+    
+    // Process batch in parallel
+    const promises = batch.map(async (movie) => {
+      // Only fetch from TMDB if poster is missing or is a placeholder
+      if (!movie.poster || movie.poster.includes('empty-poster') || movie.poster.includes('static/img/empty')) {
+        const tmdbPoster = await getPosterFromTMDB(movie.title, movie.year)
+        if (tmdbPoster) {
+          movie.poster = tmdbPoster
+        }
+      }
+      return movie
+    })
+    
+    await Promise.all(promises)
+    
+    // Delay between batches to respect rate limits
+    if (i + batchSize < movies.length) {
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  
+  return movies
+}
+
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -195,7 +274,10 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'No movies found in this list. Make sure the list is public.' })
     }
 
-    return res.status(200).json({ movies })
+    // Enrich movies with TMDB posters if API key is available
+    const enrichedMovies = await enrichMoviesWithPosters(movies)
+
+    return res.status(200).json({ movies: enrichedMovies })
   } catch (error) {
     console.error('Error fetching Letterboxd list:', error)
     return res.status(500).json({ 
