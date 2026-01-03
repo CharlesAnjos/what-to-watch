@@ -5,6 +5,8 @@ function MovieRoulette() {
   const [listUrl, setListUrl] = useState('')
   const [movies, setMovies] = useState([])
   const [loading, setLoading] = useState(false)
+  const [preloadingImages, setPreloadingImages] = useState(false)
+  const [imageProgress, setImageProgress] = useState({ loaded: 0, total: 0 })
   const [error, setError] = useState('')
   const [selectedMovie, setSelectedMovie] = useState(null)
   const [isSpinning, setIsSpinning] = useState(false)
@@ -42,11 +44,53 @@ function MovieRoulette() {
       }
 
       setMovies(data.movies)
+      
+      // Preload all poster images
+      await preloadPosterImages(data.movies)
     } catch (err) {
       setError(err.message || 'An error occurred while fetching the list')
     } finally {
       setLoading(false)
+      setPreloadingImages(false)
     }
+  }
+
+  // Preload all poster images
+  const preloadPosterImages = async (moviesToPreload) => {
+    const posters = moviesToPreload
+      .map(movie => movie.poster)
+      .filter(poster => poster && poster.trim() !== '')
+    
+    if (posters.length === 0) {
+      return // No posters to preload
+    }
+
+    setPreloadingImages(true)
+    setImageProgress({ loaded: 0, total: posters.length })
+
+    const loadImage = (src) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => resolve()
+        img.onerror = () => resolve() // Continue even if image fails
+        img.src = src
+      })
+    }
+
+    // Load images in batches to avoid overwhelming the browser
+    const batchSize = 10
+    for (let i = 0; i < posters.length; i += batchSize) {
+      const batch = posters.slice(i, i + batchSize)
+      await Promise.all(batch.map(loadImage))
+      setImageProgress({ loaded: Math.min(i + batchSize, posters.length), total: posters.length })
+      
+      // Small delay between batches to prevent browser freezing
+      if (i + batchSize < posters.length) {
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+    }
+
+    setPreloadingImages(false)
   }
 
   const spinRoulette = () => {
@@ -96,15 +140,45 @@ function MovieRoulette() {
           />
           <button
             onClick={fetchMovies}
-            disabled={loading}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading || preloadingImages}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {loading ? 'Loading...' : 'Load List'}
+            {(loading || preloadingImages) && (
+              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            {loading && 'Loading list...'}
+            {preloadingImages && `Preparing images... (${imageProgress.loaded}/${imageProgress.total})`}
+            {!loading && !preloadingImages && 'Load List'}
           </button>
         </div>
         {error && (
           <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200">
             {error}
+          </div>
+        )}
+        {(loading || preloadingImages) && (
+          <div className="mt-4">
+            <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
+              <motion.div
+                className="bg-blue-600 h-full"
+                initial={{ width: 0 }}
+                animate={{
+                  width: loading
+                    ? '50%' // Show 50% while fetching list
+                    : preloadingImages
+                    ? `${(imageProgress.loaded / imageProgress.total) * 50 + 50}%` // 50-100% while preloading
+                    : '0%'
+                }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <p className="text-gray-400 text-sm mt-2 text-center">
+              {loading && 'Fetching movies from Letterboxd...'}
+              {preloadingImages && `Loading poster images... ${imageProgress.loaded} of ${imageProgress.total}`}
+            </p>
           </div>
         )}
       </div>
@@ -124,10 +198,10 @@ function MovieRoulette() {
           <div className="text-center mb-6">
             <button
               onClick={spinRoulette}
-              disabled={isSpinning}
+              disabled={isSpinning || preloadingImages}
               className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xl rounded-full transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
             >
-              {isSpinning ? 'Spinning...' : '🎰 Spin the Roulette!'}
+              {isSpinning ? 'Spinning...' : preloadingImages ? 'Preparing...' : '🎰 Spin the Roulette!'}
             </button>
           </div>
 
