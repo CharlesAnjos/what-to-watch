@@ -11,6 +11,7 @@ function MovieRoulette() {
   const [selectedMovie, setSelectedMovie] = useState(null)
   const [isSpinning, setIsSpinning] = useState(false)
   const [spinningMovies, setSpinningMovies] = useState([])
+  const [targetScrollPosition, setTargetScrollPosition] = useState(0)
 
   const fetchMovies = async () => {
     if (!listUrl.trim()) {
@@ -99,23 +100,43 @@ function MovieRoulette() {
     setIsSpinning(true)
     setSelectedMovie(null)
 
-    // Create an array of movies to display during spin (repeat for visual effect)
-    const repeatedMovies = []
-    for (let i = 0; i < 50; i++) {
-      repeatedMovies.push(movies[Math.floor(Math.random() * movies.length)])
-    }
-    
-    // Select the final movie
+    // Select the final movie FIRST
     const finalIndex = Math.floor(Math.random() * movies.length)
     const finalMovie = movies[finalIndex]
     
-    // Add the final movie at the end
-    repeatedMovies.push(finalMovie)
+    // Create an array of movies to display during spin
+    // We'll add random movies, then the final movie multiple times at the end
+    // to ensure it's visible when animation stops
+    const repeatedMovies = []
+    
+    // Add random movies for the spinning effect (about 40)
+    for (let i = 0; i < 40; i++) {
+      repeatedMovies.push(movies[Math.floor(Math.random() * movies.length)])
+    }
+    
+    // Add the final movie multiple times at the end to ensure it's visible
+    // This creates a "landing zone" where the animation will stop
+    for (let i = 0; i < 5; i++) {
+      repeatedMovies.push(finalMovie)
+    }
     
     setSpinningMovies(repeatedMovies)
 
     // Duration of the spin animation
     const spinDuration = 3000
+
+    // Calculate the exact scroll position to show the final movie
+    // Each movie item is approximately 88px tall (80px minHeight + 8px gap from flex gap-2)
+    const itemHeight = 88
+    const containerHeight = 200
+    const totalItems = repeatedMovies.length
+    const finalMovieStartIndex = totalItems - 5 // Final movie starts at this index (we added 5 copies)
+    
+    // Calculate scroll position to center the first instance of the final movie
+    // Scroll = -(index * itemHeight) + (containerHeight / 2) - (itemHeight / 2)
+    // This centers the item in the visible container
+    const targetY = -(finalMovieStartIndex * itemHeight) + (containerHeight / 2) - (itemHeight / 2)
+    setTargetScrollPosition(targetY)
 
     setTimeout(() => {
       setSelectedMovie(finalMovie)
@@ -212,7 +233,7 @@ function MovieRoulette() {
                 className="flex flex-col gap-2"
                 initial={{ y: 0 }}
                 animate={{ 
-                  y: [0, -1800],
+                  y: targetScrollPosition,
                 }}
                 transition={{
                   duration: 3,
