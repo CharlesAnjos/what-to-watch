@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 function MovieRoulette() {
@@ -8,6 +8,7 @@ function MovieRoulette() {
   const [error, setError] = useState('')
   const [selectedMovie, setSelectedMovie] = useState(null)
   const [isSpinning, setIsSpinning] = useState(false)
+  const [spinningMovies, setSpinningMovies] = useState([])
 
   const fetchMovies = async () => {
     if (!listUrl.trim()) {
@@ -54,30 +55,29 @@ function MovieRoulette() {
     setIsSpinning(true)
     setSelectedMovie(null)
 
-    // Spin animation duration
-    const spinDuration = 2000
-    const startTime = Date.now()
-
-    const spin = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / spinDuration, 1)
-
-      // Easing function for smooth deceleration
-      const easeOut = 1 - Math.pow(1 - progress, 3)
-
-      if (progress < 1) {
-        // Random selection during spin (visual effect)
-        setSelectedMovie(movies[Math.floor(Math.random() * movies.length)])
-        requestAnimationFrame(spin)
-      } else {
-        // Final selection
-        const randomIndex = Math.floor(Math.random() * movies.length)
-        setSelectedMovie(movies[randomIndex])
-        setIsSpinning(false)
-      }
+    // Create an array of movies to display during spin (repeat for visual effect)
+    const repeatedMovies = []
+    for (let i = 0; i < 50; i++) {
+      repeatedMovies.push(movies[Math.floor(Math.random() * movies.length)])
     }
+    
+    // Select the final movie
+    const finalIndex = Math.floor(Math.random() * movies.length)
+    const finalMovie = movies[finalIndex]
+    
+    // Add the final movie at the end
+    repeatedMovies.push(finalMovie)
+    
+    setSpinningMovies(repeatedMovies)
 
-    requestAnimationFrame(spin)
+    // Duration of the spin animation
+    const spinDuration = 3000
+
+    setTimeout(() => {
+      setSelectedMovie(finalMovie)
+      setIsSpinning(false)
+      setSpinningMovies([])
+    }, spinDuration)
   }
 
   return (
@@ -131,15 +131,57 @@ function MovieRoulette() {
             </button>
           </div>
 
+          {/* Spinning Wheel Display */}
+          {isSpinning && spinningMovies.length > 0 && (
+            <div className="relative overflow-hidden bg-gray-900 rounded-lg p-6 mb-6" style={{ height: '200px' }}>
+              <motion.div
+                className="flex flex-col gap-2"
+                initial={{ y: 0 }}
+                animate={{ 
+                  y: [0, -1800],
+                }}
+                transition={{
+                  duration: 3,
+                  ease: [0.25, 0.1, 0.25, 1], // Custom easing for deceleration
+                }}
+              >
+                {spinningMovies.map((movie, index) => (
+                  <div
+                    key={`${movie.title}-${index}`}
+                    className="flex items-center gap-4 bg-gray-800 rounded-lg p-4 border border-gray-700"
+                    style={{ minHeight: '80px' }}
+                  >
+                    {movie.poster && (
+                      <img
+                        src={movie.poster}
+                        alt={movie.title}
+                        className="w-16 h-20 object-cover rounded"
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                        }}
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold text-lg">{movie.title}</h3>
+                      {movie.year && (
+                        <p className="text-gray-400 text-sm">({movie.year})</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            </div>
+          )}
+
           {/* Selected Movie Display */}
           <AnimatePresence mode="wait">
-            {selectedMovie && (
+            {selectedMovie && !isSpinning && (
               <motion.div
                 key={selectedMovie.title}
                 initial={{ opacity: 0, scale: 0.8, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.5 }}
                 className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg p-6 border border-gray-600"
               >
                 <div className="flex flex-col md:flex-row gap-6">
@@ -148,6 +190,9 @@ function MovieRoulette() {
                       src={selectedMovie.poster}
                       alt={selectedMovie.title}
                       className="w-full md:w-48 h-auto rounded-lg object-cover shadow-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                      }}
                     />
                   )}
                   <div className="flex-1">

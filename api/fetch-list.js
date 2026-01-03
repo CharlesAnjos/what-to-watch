@@ -1,3 +1,16 @@
+// Simple HTML entity decoder
+function decodeHtmlEntities(text) {
+  if (!text) return text
+  return text
+    .replace(/&#039;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&apos;/g, "'")
+}
+
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -44,11 +57,21 @@ export default async function handler(req, res) {
           if (data['@type'] === 'ItemList' && data.itemListElement) {
             for (const item of data.itemListElement) {
               if (item.item) {
+                let poster = item.item.image || ''
+                // Fix poster URL - Letterboxd uses specific formats
+                if (poster) {
+                  // Replace small thumbnails with larger versions
+                  poster = poster.replace(/\/0-230-0-345-crop/, '/0-500-0-750-crop')
+                  // Ensure full URL
+                  if (poster && !poster.startsWith('http')) {
+                    poster = 'https://letterboxd.com' + poster
+                  }
+                }
                 movies.push({
-                  title: item.item.name || '',
+                  title: decodeHtmlEntities(item.item.name || ''),
                   year: item.item.datePublished || '',
                   director: item.item.director?.name || '',
-                  poster: item.item.image || '',
+                  poster: poster,
                   link: item.item.url || '',
                 })
               }
@@ -70,19 +93,26 @@ export default async function handler(req, res) {
         // Extract title
         const titleMatch = movieHtml.match(/data-film-name="([^"]+)"/) ||
                           movieHtml.match(/<a[^>]*class="[^"]*film[^"]*"[^>]*>([^<]+)</)
-        const title = titleMatch ? titleMatch[1].trim() : ''
+        const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : ''
 
         // Extract year
         const yearMatch = movieHtml.match(/data-film-release-year="(\d+)"/) ||
                          movieHtml.match(/<a[^>]*href="\/film\/[^\/]+\/(\d{4})\/"/)
         const year = yearMatch ? yearMatch[1] : ''
 
-        // Extract poster image
+        // Extract poster image - try multiple patterns
         const posterMatch = movieHtml.match(/<img[^>]*src="([^"]+)"[^>]*class="[^"]*image[^"]*"/) ||
-                           movieHtml.match(/<img[^>]*data-src="([^"]+)"/)
+                           movieHtml.match(/<img[^>]*data-src="([^"]+)"/) ||
+                           movieHtml.match(/<img[^>]*src="([^"]*\/film\/[^"]*)"[^>]*/) ||
+                           movieHtml.match(/data-src="([^"]*\/film\/[^"]*)"/)
         let poster = posterMatch ? posterMatch[1] : ''
-        if (poster && !poster.startsWith('http')) {
-          poster = 'https://letterboxd.com' + poster
+        if (poster) {
+          // Fix poster URL - replace small thumbnails with larger versions
+          poster = poster.replace(/\/0-230-0-345-crop/, '/0-500-0-750-crop')
+          // Ensure full URL
+          if (!poster.startsWith('http')) {
+            poster = 'https://letterboxd.com' + poster
+          }
         }
 
         // Extract link
@@ -116,12 +146,17 @@ export default async function handler(req, res) {
           const titleMatch = item.match(/data-film-slug="([^"]+)"/) ||
                            item.match(/alt="([^"]+)"/)
           let title = titleMatch ? titleMatch[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''
+          title = decodeHtmlEntities(title)
           
           // Extract poster
           const posterMatch = item.match(/src="([^"]+)"/) || item.match(/data-src="([^"]+)"/)
           let poster = posterMatch ? posterMatch[1] : ''
-          if (poster && !poster.startsWith('http')) {
-            poster = 'https://letterboxd.com' + poster
+          if (poster) {
+            // Fix poster URL - replace small thumbnails with larger versions
+            poster = poster.replace(/\/0-230-0-345-crop/, '/0-500-0-750-crop')
+            if (!poster.startsWith('http')) {
+              poster = 'https://letterboxd.com' + poster
+            }
           }
 
           // Extract link
